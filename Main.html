@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Campus Inventory Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        .controls, .form-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        input {
+            padding: 8px;
+            min-width: 150px;
+        }
+
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 2px solid #000;
+            width: 900px;
+            background: #fff;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #e5c76d;
+        }
+
+        #tableWrapper {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <h1>Inventory</h1>
+        <div class="controls">
+            <input type="number" id="searchID" placeholder="Enter Item ID">
+            <button onclick="searchInventory()">Search Item</button>
+            <button onclick="deleteInventoryByID()">Delete by ID</button>
+            <button onclick="loadInventory()">Retrieve Records</button>
+        </div>
+        <div class="form-row">
+            <input type="text" id="product_name" placeholder="Product Name">
+            <input type="text" id="category" placeholder="Category">
+            <input type="number" id="price" placeholder="Price">
+            <input type="number" id="stock" placeholder="Stock">
+            <button onclick="addInventoryItems()">Add Item</button>
+        </div>
+        <div id="tableWrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Availability Status</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        function renderInventory(items) {
+            const tbody = document.getElementById("inventoryTableBody");
+            const wrapper = document.getElementById("tableWrapper");
+            tbody.innerHTML = "";
+            wrapper.style.display = "block";
+            items.forEach(item => {
+                let status = "AVAILABLE";
+                if (item.stock === 0) {
+                    status = "OUT OF STOCK";
+                } else if (item.stock <= 5) {
+                    status = "LOW STOCK";
+                }
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.product_name}</td>
+                    <td>${item.category}</td>
+                    <td>${item.price}</td>
+                    <td>${item.stock}</td>
+                    <td>${status}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        async function loadInventory() {
+            const response = await fetch("/api/inventory");
+            const items = await response.json();
+            renderInventory(items);
+        }
+        async function searchInventory() {
+            const input = document.getElementById("searchID");
+            const id = Number(input.value);
+            const tbody = document.getElementById("inventoryTableBody");
+            const wrapper = document.getElementById("tableWrapper");
+            if (!id) {
+                loadInventory();
+                return;
+            }
+            try {
+                const response = await fetch(`/api/inventory/${id}`);
+                if (!response.ok) throw new Error("Item not found");
+                const item = await response.json();
+                renderInventory([item]);
+            } catch (error) {
+                tbody.innerHTML = "<tr><td colspan='6'>Item not found</td></tr>";
+                wrapper.style.display = "block";
+            }
+        }
+
+        async function deleteInventoryByID() {
+            const id = Number(document.getElementById("searchID").value);
+            if (!id) {
+                alert("Enter an item ID to delete.");
+                return;
+            }
+            const response = await fetch(`/api/inventory/${id}`, {
+                method: "DELETE"
+            });
+            if (!response.ok) {
+                alert("Item not found or delete failed.");
+                return;
+            }
+            loadInventory();
+        }
+
+        async function addInventoryItems() {
+            const newItem = {
+                product_name: document.getElementById("product_name").value,
+                category: document.getElementById("category").value,
+                price: Number(document.getElementById("price").value),
+                stock: Number(document.getElementById("stock").value)
+            };
+            const response = await fetch("/api/inventory", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(newItem)
+            });
+            if (!response.ok) {
+                alert("Add failed.");
+                return;
+            }
+            document.getElementById("product_name").value = "";
+            document.getElementById("category").value = "";
+            document.getElementById("price").value = "";
+            document.getElementById("stock").value = "";
+            loadInventory();
+        }
+    </script>
+</body>
+</html>
